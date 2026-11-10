@@ -17,7 +17,7 @@ src/renderer/settings.* settings window (hotkey recorder, folder, format, export
 scripts/make-icons.js   draws build/icon.png + assets/tray*.png (npm run icons)
 scripts/smoke-test.js   headless overlay test with synthetic screen + input (npm test)
 scripts/build.sh        packaging (output on internal disk, see gotchas)
-docs/LIGHTSHOT_ANALYSIS.md  what was recovered from the installed Lightshot.app
+docs/LIGHTSHOT_ANALYSIS.md  PRIVATE, gitignored: owner's notes on Lightshot's UX (never commit/publish)
 ```
 
 ## Key design facts

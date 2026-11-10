@@ -2,7 +2,26 @@
   "name": "snapmark",
   "productName": "SnapMark",
   "version": "0.1.0",
-  "description": "Lightshot-style screenshot + annotation tool for designers (macOS & Windows)",
+  "description": "Fast, private screenshot and markup tool for designers, for macOS and Windows",
+  "keywords": [
+    "screenshot",
+    "screen-capture",
+    "annotation",
+    "markup",
+    "designer",
+    "electron",
+    "macos",
+    "windows",
+    "lightshot-alternative"
+  ],
+  "homepage": "https://github.com/azaanmunir/snapmark#readme",
+  "bugs": {
+    "url": "https://github.com/azaanmunir/snapmark/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/azaanmunir/snapmark.git"
+  },
   "main": "src/main/main.js",
   "author": "Azaan Ali",
   "license": "MIT",

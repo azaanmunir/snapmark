@@ -9,7 +9,7 @@ installed to `~/Applications/SnapMark.app`, with DMGs in `dist/`. The Windows NS
 Screen Recording grant and a hands-on check.
 
 ## Done
-- [x] Reverse-engineered the installed Lightshot.app (see `docs/LIGHTSHOT_ANALYSIS.md`)
+- [x] Studied Lightshot's workflow and UX (private notes in `docs/LIGHTSHOT_ANALYSIS.md`, gitignored, never publish)
 - [x] Checked for 50k+ star screenshot repos: only `abi/screenshot-to-code` (81k), which converts screenshots to code
       and doesn't capture. ShareX (41k) and Flameshot (31k) are below the bar and GPL, so they were used only as UX references and no code was copied.
 - [x] Electron app: tray/menu-bar only, single instance, global hotkeys (configurable), launch at login
@@ -54,7 +54,7 @@ Screen Recording grant and a hands-on check.
 - Export as WebP/AVIF, "copy as file" for Figma drag-drop
 
 ## Session log
-- **2026-11-10**: Initial build. Ran static RE on Lightshot 2.22, then built the whole app, smoke test, icons and
+- **2026-11-10**: Initial build. Studied Lightshot 2.22's workflow, then built the whole app, smoke test, icons and
   packaging. Electron 45.2.1, electron-builder 26.18.0.
 - **2026-11-10 (later)**: Owner reported "permission ON but nothing works". The log showed `screen=denied`: the
   ad-hoc signature changes on every rebuild, so the existing TCC entry was stale. Added a log file
@@ -71,4 +71,8 @@ Screen Recording grant and a hands-on check.
   clipboard API, and its new async `image/png` write is a silent no-op. Added `src/main/clip.js` (macOS raw `public.png`;
   Windows PowerShell DataObject with PNG + bitmap) and `npm run test:clipboard`. Copy, quick-save copy, pin
   copy/cut, full-screen copy and paste-as-pin all use it now. **Windows clipboard path is untested on a real PC.**
+- **2026-11-10 (later)**: Open-sourced it as https://github.com/azaanmunir/snapmark (MIT). Added LICENSE, a public
+  README with install steps for unsigned apps, a screenshot and package metadata. The private Lightshot notes were
+  removed from git history before the first push and stay local only (gitignored). Published release v0.1.0 with the
+  macOS DMGs (arm64/x64) and the Windows installer + portable exe.
 

@@ -1,5 +1,5 @@
 // SnapMark — main process.
-// Architecture mirrors what we recovered from Lightshot's macOS binary (see docs/LIGHTSHOT_ANALYSIS.md):
+// Workflow follows the classic Lightshot-style flow:
 //   tray-only app  ->  global hotkey  ->  freeze screen  ->  full-screen overlay per display
 //   ->  region selection + draw toolbar + action toolbar  ->  copy / save / pin.
 const {
