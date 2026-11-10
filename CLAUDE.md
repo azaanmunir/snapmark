@@ -8,6 +8,7 @@ and update it at the end of every session.
 ```
 src/main/main.js        main process: tray, global hotkeys, capture, overlay windows, pins, save/copy, settings IPC
 src/main/settings.js    JSON settings in app.getPath('userData')/settings.json (+ DEFAULTS)
+src/main/clip.js        clipboard helpers (Electron 45 workaround, see gotchas)
 src/main/preload.js     contextBridge API `window.snap` (only channel list; keep it narrow)
 src/renderer/overlay.*  the capture UI (one window per display): selection, loupe, tools, toolbars, export
 src/renderer/icons.js   inline SVG icon set (window.ICONS / window.icon())
@@ -50,6 +51,10 @@ npm run dist:win   # build NSIS installer + portable .exe (x64)
 * The repo lives on an **exFAT** drive. macOS writes `._*` AppleDouble files there; they break asar packaging, so
   `scripts/build.sh` builds into `~/Library/Caches/SnapMark-build` and copies the installers to `./dist`.
 * Electron is pinned to **45.2.1** (it is in the local Electron cache; other versions download slowly).
+* **Clipboard:** Electron 45 removed `clipboard.writeImage/readImage` (the API is now async `clipboard.write([new
+  ClipboardItem(...)])`), and writing `image/png` is silently dropped. Always use `src/main/clip.js`: `writePng`,
+  `readPng`, `writeText`. It writes raw `public.png` on macOS and a PowerShell DataObject (PNG + bitmap) on Windows.
+  Verify with `npm run test:clipboard` (overwrites your clipboard).
 * macOS needs **Screen Recording** permission. The app is ad-hoc signed and the grant is tied to its code hash, so
   **never replace the installed .app** casually: use `npm run update:mac`, which swaps only `Contents/Resources/app.asar`.
   That breaks the bundle seal, which is harmless here. If the grant does break: remove SnapMark with "−" and add

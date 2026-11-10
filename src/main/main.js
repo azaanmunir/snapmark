@@ -4,12 +4,13 @@
 //   ->  region selection + draw toolbar + action toolbar  ->  copy / save / pin.
 const {
   app, BrowserWindow, Tray, Menu, globalShortcut, desktopCapturer, screen, ipcMain,
-  clipboard, nativeImage, dialog, shell, systemPreferences, Notification,
+  nativeImage, dialog, shell, systemPreferences, Notification,
 } = require('electron');
 const fs = require('fs');
 const { execFile } = require('child_process');
 const path = require('path');
 const settings = require('./settings');
+const clip = require('./clip');
 
 const isMac = process.platform === 'darwin';
 const ROOT = path.join(__dirname, '..', '..');
@@ -306,7 +307,7 @@ async function captureFullScreenToClipboard() {
   const d = screen.getDisplayNearestPoint(pt);
   const shots = await grabDisplays();
   const shot = shots.find((x) => x.display.id === d.id) || shots[0];
-  clipboard.writeImage(shot.image);
+  await clip.writePng(shot.image.toPNG());
   if (settings.load().autoSaveCopy) writeToSaveDir(shot.image.toPNG(), 'png');
   notify('Copied full screen', `${shot.image.getSize().width} × ${shot.image.getSize().height} px`);
 }
@@ -395,24 +396,24 @@ ipcMain.on('overlay:cancel', () => { log('overlay cancel'); closeOverlays(); });
 
 ipcMain.on('overlay:prefs', (_e, patch) => settings.save(patch));
 
-ipcMain.on('clipboard:text', (_e, text) => clipboard.writeText(String(text)));
+ipcMain.on('clipboard:text', (_e, text) => clip.writeText(text).catch((e) => log('copy text failed', String(e))));
 
 ipcMain.handle('overlay:finish', async (e, { action, png, rect }) => {
   const o = overlayFor(e.sender);
   log('finish', action, rect, `${png.length} bytes`);
   const buf = Buffer.from(png);
-  const img = nativeImage.createFromBuffer(buf);
   const s = settings.load();
   if (action === 'copy') {
-    clipboard.writeImage(img);
+    await clip.writePng(buf); // throws -> overlay stays open and shows the error
+    log('copied to clipboard');
     closeOverlays();
     if (s.autoSaveCopy) writeToSaveDir(buf, s.format);
     return { ok: true };
   }
   if (action === 'quicksave') {
     const p = writeToSaveDir(buf, s.format);
-    clipboard.writeImage(img);
     closeOverlays();
+    await clip.writePng(buf).catch((e) => log('quicksave copy failed', String(e)));
     notify('Saved & copied', path.basename(p), () => shell.showItemInFolder(p));
     return { ok: true, path: p };
   }
@@ -460,15 +461,16 @@ function createPin(png, bounds) {
   refreshTrayMenu();
 }
 
-function pinFromClipboard() {
-  const img = clipboard.readImage();
-  if (img.isEmpty()) return notify('No image on clipboard', 'Copy an image first.');
+async function pinFromClipboard() {
+  const png = await clip.readPng().catch((e) => { log('read clipboard failed', String(e)); return null; });
+  if (!png) return notify('No image on clipboard', 'Copy an image first.');
+  const img = nativeImage.createFromBuffer(png);
   const pt = screen.getCursorScreenPoint();
   const d = screen.getDisplayNearestPoint(pt);
   const sz = img.getSize();
   const w = sz.width / d.scaleFactor;
   const h = sz.height / d.scaleFactor;
-  createPin(img.toPNG(), { x: pt.x - w / 2, y: pt.y - h / 2, width: w, height: h });
+  createPin(png, { x: pt.x - w / 2, y: pt.y - h / 2, width: w, height: h });
 }
 
 ipcMain.on('pin:move', (e, { dx, dy }) => {
@@ -500,9 +502,8 @@ ipcMain.on('pin:opacity', (e, delta) => {
 });
 
 async function pinAction(p, action) {
-  const img = nativeImage.createFromBuffer(Buffer.from(p.png));
-  if (action === 'copy') { clipboard.writeImage(img); return 'Copied'; }
-  if (action === 'cut') { clipboard.writeImage(img); p.win.close(); return null; }
+  if (action === 'copy') { await clip.writePng(Buffer.from(p.png)); return 'Copied'; }
+  if (action === 'cut') { await clip.writePng(Buffer.from(p.png)); p.win.close(); return null; }
   if (action === 'save') { const f = await saveWithDialog(Buffer.from(p.png), p.win); return f ? 'Saved' : null; }
   if (action === 'quicksave') { const f = writeToSaveDir(Buffer.from(p.png), settings.load().format); return `Saved ${path.basename(f)}`; }
   if (action === 'close') { p.win.close(); return null; }
@@ -518,7 +519,9 @@ ipcMain.handle('pin:action', async (e, action) => {
 ipcMain.on('pin:menu', (e) => {
   const p = pins.get(e.sender.id);
   if (!p) return;
-  const send = (a) => pinAction(p, a).then((msg) => msg && !p.win.isDestroyed() && p.win.webContents.send('pin:toast', msg));
+  const send = (a) => pinAction(p, a)
+    .then((msg) => msg && !p.win.isDestroyed() && p.win.webContents.send('pin:toast', msg))
+    .catch((err) => { log('pin action failed', a, String(err)); if (!p.win.isDestroyed()) p.win.webContents.send('pin:toast', 'Failed'); });
   Menu.buildFromTemplate([
     { label: 'Copy', accelerator: 'CommandOrControl+C', click: () => send('copy') },
     { label: 'Cut (copy & close)', accelerator: 'CommandOrControl+X', click: () => send('cut') },

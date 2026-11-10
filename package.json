@@ -13,7 +13,8 @@
     "dist:mac": "bash scripts/build.sh mac",
     "dist:win": "bash scripts/build.sh win",
     "test": "electron scripts/smoke-test.js",
-    "update:mac": "bash scripts/build.sh update"
+    "update:mac": "bash scripts/build.sh update",
+    "test:clipboard": "electron scripts/clipboard-test.js"
   },
   "build": {
     "appId": "com.azaan.snapmark",

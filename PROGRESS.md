@@ -39,7 +39,7 @@ Screen Recording grant and a hands-on check.
 - [ ] Stable code-signing identity (self-signed cert in the login keychain), so a full reinstall keeps the Screen
       Recording grant. For now, `npm run update:mac` swaps only app.asar and keeps the grant.
 - [ ] Owner: grant Screen Recording, try real captures on the Mac, list what feels off
-- [ ] Try the Windows build on a real Windows PC (hotkeys, multi-monitor DPI, PrintScreen)
+- [ ] Try the Windows build on a real Windows PC (hotkeys, multi-monitor DPI, PrintScreen, **⌘C → paste into Paint/Figma**)
 - [ ] Rotate handles; resizing for pen/highlighter strokes
 - [ ] Window/element snapping on hover (needs native window list: CGWindowList on mac, EnumWindows on Windows)
 - [ ] Capture history panel (recent shots in the save folder)
@@ -67,3 +67,8 @@ Screen Recording grant and a hands-on check.
 - **2026-11-10 (later)**: Owner asked for type that stays editable until copy/save (drag, resize, recolor,
   ⌘C/⌘S), and for text on step numbers. Added both, plus resize handles for all box/line shapes. Added
   `scripts/build.sh update` (`npm run update:mac`), which keeps the permission. The smoke test covers text + labels.
+- **2026-11-10 (later)**: ⌘C failed with "clipboard.writeImage is not a function". Electron 45 removed the sync
+  clipboard API, and its new async `image/png` write is a silent no-op. Added `src/main/clip.js` (macOS raw `public.png`;
+  Windows PowerShell DataObject with PNG + bitmap) and `npm run test:clipboard`. Copy, quick-save copy, pin
+  copy/cut, full-screen copy and paste-as-pin all use it now. **Windows clipboard path is untested on a real PC.**
+
