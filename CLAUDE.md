@@ -17,6 +17,8 @@ src/renderer/settings.* settings window (hotkey recorder, folder, format, export
 scripts/make-icons.js   draws build/icon.png + assets/tray*.png (npm run icons)
 scripts/smoke-test.js   headless overlay test with synthetic screen + input (npm test)
 scripts/build.sh        packaging (output on internal disk, see gotchas)
+scripts/update-cask.sh  after a GitHub release: bump packaging/homebrew/snapmark.rb and push it to azaanmunir/homebrew-tap
+scripts/demo-shot.js    regenerates docs/screenshot.png from scripts/demo/mock.html
 docs/LIGHTSHOT_ANALYSIS.md  PRIVATE, gitignored: owner's notes on Lightshot's UX (never commit/publish)
 ```
 

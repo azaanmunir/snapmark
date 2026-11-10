@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/azaanmunir/snapmark/releases/latest"><b>Download</b></a> ·
+  <a href="#macos-homebrew-recommended-no-security-warning">Homebrew</a> ·
   <a href="#features">Features</a> ·
   <a href="#shortcuts">Shortcuts</a> ·
   <a href="#build-from-source">Build from source</a>
@@ -39,32 +40,55 @@
 
 ## Install
 
-Download the latest installer from **[Releases](https://github.com/azaanmunir/snapmark/releases/latest)**.
+### macOS: Homebrew (recommended, no security warning)
 
-| Platform | File |
-|---|---|
-| macOS, Apple Silicon (M1–M4) | `SnapMark-x.y.z-arm64.dmg` |
-| macOS, Intel | `SnapMark-x.y.z.dmg` |
-| Windows (installer) | `SnapMark Setup x.y.z.exe` |
-| Windows (portable, no install) | `SnapMark x.y.z.exe` |
+```bash
+brew tap azaanmunir/tap
+brew trust --tap azaanmunir/tap   # Homebrew 7+ asks you to trust third-party taps once (skip on older Homebrew)
+brew install --cask snapmark
+```
 
-The builds aren't signed with a paid Apple or Microsoft certificate yet, so your OS will warn you the first time you open one:
+Update later with `brew upgrade --cask snapmark`.
 
-**macOS**
-1. Open the DMG and drag SnapMark into Applications.
-2. Open SnapMark. If macOS blocks it, go to **System Settings → Privacy & Security**, scroll down and click
-   **Open Anyway**.
-3. Press **⌘⇧2**. Allow **Screen Recording** when asked (System Settings → Privacy & Security →
-   Screen & System Audio Recording), then quit and reopen SnapMark.
-   If SnapMark isn't in that list, click **+** and add it from Applications.
-   If the switch is on but capturing still fails, remove SnapMark with **−** and add it again.
+### macOS: download the DMG
 
-**Windows**
-1. Run the installer. If SmartScreen appears, click **More info → Run anyway**.
-2. Press **PrintScreen** or **Ctrl+Shift+2**. If PrintScreen opens Windows' Snipping Tool instead, turn off
+1. Download from **[Releases](https://github.com/azaanmunir/snapmark/releases/latest)**:
+   `SnapMark-x.y.z-arm64.dmg` for Apple Silicon (M1–M4) or `SnapMark-x.y.z.dmg` for Intel.
+   Not sure which you have? Apple menu → **About This Mac** → *Chip*.
+2. Open the DMG and drag **SnapMark** into **Applications**.
+3. Open SnapMark. The first time, macOS says *"Apple could not verify 'SnapMark' is free of malware"*. Click **Done**, then:
+   - go to **System Settings → Privacy & Security**, scroll down to *Security* and click **Open Anyway** next to
+     "SnapMark was blocked", confirm with your password or Touch ID, and SnapMark opens.
+   - on macOS 14 or older you can instead **right-click SnapMark → Open → Open**.
+     (macOS 15 Sequoia and newer removed this shortcut, so use Open Anyway.)
+
+   Prefer Terminal? This one command does the same thing:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/SnapMark.app
+   ```
+4. Press **⌘⇧2**, allow **Screen Recording** (System Settings → Privacy & Security → Screen & System Audio Recording),
+   then quit and reopen SnapMark.
+   - SnapMark isn't in the list? Click **+** and add it from Applications.
+   - The switch is on but capture still fails? Remove SnapMark with **−**, add it again with **+**, and reopen it.
+
+<details>
+<summary><b>Why does macOS warn me?</b></summary>
+
+Apple shows this for any app that isn't *notarized*, which requires a paid Apple Developer membership that this
+free project doesn't have yet. SnapMark is open source, has no network code, and every release lists SHA-256
+checksums on the [Releases](https://github.com/azaanmunir/snapmark/releases) page so you can verify your download.
+If you see *"SnapMark is damaged and can't be opened"*, run the `xattr` command above, or re-download the DMG.
+</details>
+
+### Windows
+
+1. Download `SnapMark Setup x.y.z.exe` (installer) or `SnapMark x.y.z.exe` (portable) from
+   **[Releases](https://github.com/azaanmunir/snapmark/releases/latest)**.
+2. If SmartScreen shows *"Windows protected your PC"*, click **More info → Run anyway**.
+3. Press **PrintScreen** or **Ctrl+Shift+2**. If PrintScreen opens Windows' Snipping Tool instead, turn off
    *Settings → Accessibility → Keyboard → "Use the Print screen key to open screen capture"*.
 
-SnapMark lives in the menu bar (macOS) or the system tray (Windows). Right-click or click its icon for Settings.
+SnapMark lives in the menu bar (macOS) or the system tray (Windows). Click its icon for Settings.
 
 ## Shortcuts
 
