@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" width="820" alt="SnapMark capture overlay with arrows, step numbers, a measure line and the toolbars" />
+  <img src="docs/screenshot.png" width="820" alt="SnapMark used for a design review: a typo highlighted, card padding measured, low-contrast text flagged, personal data pixelated and a misaligned button boxed, each with a numbered label" />
 </p>
 
 > **Status: v0.1 beta.** It's used daily on macOS. The Windows build compiles but hasn't had much real-world testing
@@ -102,6 +102,8 @@ npm test                # headless smoke test of the capture overlay
 npm run dist:mac        # build .dmg files (on macOS)
 npm run dist:win        # build Windows installer + portable .exe
 ```
+
+`npm run demo-shot` regenerates the README screenshot from `scripts/demo/mock.html`.
 
 Developer notes (architecture, gotchas, how to add a tool) are in [CLAUDE.md](CLAUDE.md). The roadmap and change log
 are in [PROGRESS.md](PROGRESS.md).

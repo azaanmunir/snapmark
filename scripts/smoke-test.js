@@ -46,6 +46,7 @@ app.whenReady().then(async () => {
   });
   win.webContents.setFrameRate(60);
   await win.loadFile(path.join(__dirname, '..', 'src', 'renderer', 'overlay.html'), { hash: 'test' });
+  win.webContents.setZoomFactor(1); // ignore any zoom Chromium persisted for file:// pages
   win.webContents.on('console-message', (e) => console.log('[renderer]', e.message || e));
   win.webContents.send('overlay:init', {
     displayId: 1, width: W, height: H, scaleFactor: K, imgW: W * K, imgH: H * K, bitmap: fakeScreen(),

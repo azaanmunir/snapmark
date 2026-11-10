@@ -78,7 +78,7 @@
     prefs: {},
   };
 
-  if (location.hash === '#test') { window.__S = S; window.__T = { annoHandles: (a) => annoHandles(a), bbox: (a) => bbox(a) }; } // scripts/smoke-test.js
+  if (location.hash === '#test') { window.__S = S; window.__T = { annoHandles: (a) => annoHandles(a), bbox: (a) => bbox(a), refresh: () => { syncTools(); buildOpts(); layout(); render(); } }; } // scripts/smoke-test.js
 
   // each sized tool remembers its own size
   const SIZEKEY = { text: 'fontSize', number: 'numberSize', pointer: 'pointerSize' };
@@ -689,7 +689,8 @@
     c.font = '600 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
     const tw = c.measureText(label).width;
     const mx = (a.x1 + a.x2) / 2, my = (a.y1 + a.y2) / 2;
-    const off = 14;
+    // push the label clear of the line: half its width for vertical lines, half its height for horizontal ones
+    const off = 8 + Math.abs(nx) * (tw / 2 + 6) + Math.abs(ny) * 9;
     const lx = mx + nx * off - tw / 2 - 6, ly = my + ny * off - 9;
     c.beginPath();
     c.roundRect(lx, ly, tw + 12, 18, 5);
