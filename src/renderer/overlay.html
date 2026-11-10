@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>SnapMark Capture</title>
+  <link rel="stylesheet" href="overlay.css" />
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="hint">Drag to select · Click for full screen · <b>Space</b> move while dragging · <b>Shift</b> square · <b>C</b> copy color · <b>Esc</b> cancel</div>
+  <div id="badge" hidden></div>
+  <div id="tools" class="bar vertical" hidden></div>
+  <div id="dock" class="dock" hidden>
+    <div id="opts" class="bar"></div>
+    <div id="actions" class="bar"></div>
+  </div>
+  <textarea id="textEditor" spellcheck="false" hidden></textarea>
+  <div id="toast"></div>
+  <script src="icons.js"></script>
+  <script src="overlay.js"></script>
+</body>
+</html>

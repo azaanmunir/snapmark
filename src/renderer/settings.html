@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>SnapMark Settings</title>
+  <style>
+    :root { --bg: #1c1c1e; --card: #2a2a2d; --fg: #f5f5f7; --muted: #9a9aa2; --accent: #0a84ff; --line: rgba(255,255,255,.08); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; user-select: none; }
+    header { padding: 34px 24px 8px; -webkit-app-region: drag; }
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    main { padding: 8px 24px 24px; }
+    section { background: var(--card); border-radius: 10px; margin: 12px 0; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; border-top: 1px solid var(--line); }
+    section .row:first-child { border-top: 0; }
+    .row label { color: var(--fg); }
+    .row small { display: block; color: var(--muted); font-size: 11px; }
+    input[type=text], select { background: #1c1c1e; color: var(--fg); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: 6px 8px; font: inherit; min-width: 0; }
+    input[type=text] { width: 230px; }
+    .hk { width: 170px; text-align: center; font-weight: 600; cursor: pointer; caret-color: transparent; }
+    .hk.rec { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(10,132,255,.25); }
+    .path { color: var(--muted); font-size: 12px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+    button { background: rgba(255,255,255,.1); color: var(--fg); border: 0; border-radius: 6px; padding: 6px 10px; font: inherit; }
+    button:hover { background: rgba(255,255,255,.16); }
+    .btns { display: flex; gap: 6px; }
+    input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+    #status { color: var(--muted); font-size: 12px; min-height: 18px; padding: 0 2px; }
+    #status.err { color: #ff6961; }
+    code { background: rgba(255,255,255,.08); padding: 1px 4px; border-radius: 4px; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SnapMark</h1>
+    <p>Screenshot &amp; markup for designers</p>
+  </header>
+  <main>
+    <section>
+      <div class="row"><div><label>Capture hotkey</label><small>Click, then press a key combo · ⌫ clears</small></div><input id="hotkey" class="hk" type="text" readonly /></div>
+      <div class="row"><div><label>Second hotkey</label><small>Optional alternative</small></div><input id="altHotkey" class="hk" type="text" readonly /></div>
+    </section>
+    <section>
+      <div class="row"><div><label>Save folder</label><div id="saveDir" class="path"></div></div><div class="btns"><button id="choose">Choose…</button><button id="open">Open</button></div></div>
+      <div class="row"><div><label>File name</label><small><code>{YYYY} {MM} {DD} {HH} {mm} {ss}</code></small></div><input id="filenamePattern" type="text" /></div>
+      <div class="row"><label>Format</label><select id="format"><option value="png">PNG (lossless)</option><option value="jpg">JPEG</option></select></div>
+      <div class="row"><div><label>Export resolution</label><small>Retina screens capture at 2× by default</small></div><select id="exportScale"><option value="native">Native pixels (2× on Retina)</option><option value="1x">1× (points)</option></select></div>
+      <div class="row"><div><label>Keep a copy of every capture</label><small>Copy also saves into the folder</small></div><input id="autoSaveCopy" type="checkbox" /></div>
+    </section>
+    <section>
+      <div class="row"><label>Launch at login</label><input id="launchAtLogin" type="checkbox" /></div>
+    </section>
+    <div id="status"></div>
+  </main>
+  <script src="settings.js"></script>
+</body>
+</html>
