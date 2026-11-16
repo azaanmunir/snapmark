@@ -27,4 +27,5 @@ contextBridge.exposeInMainWorld('snap', {
   chooseDir: () => ipcRenderer.invoke('settings:chooseDir'),
   suspendHotkeys: (on) => ipcRenderer.send('settings:suspendHotkeys', on),
   openSaveDir: () => ipcRenderer.send('settings:openDir'),
+  checkUpdates: () => ipcRenderer.invoke('settings:checkUpdates'),
 });

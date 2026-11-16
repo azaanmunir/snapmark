@@ -11,6 +11,8 @@ const { execFile } = require('child_process');
 const path = require('path');
 const settings = require('./settings');
 const clip = require('./clip');
+const updates = require('./updates');
+const wingrab = require('./wingrab');
 
 const isMac = process.platform === 'darwin';
 const ROOT = path.join(__dirname, '..', '..');
@@ -57,13 +59,17 @@ app.whenReady().then(() => {
   if (isMac) setInterval(() => { if (screenStatus() !== lastStatus) refreshTrayMenu(); }, 3000);
   registerHotkeys();
   applyLoginItem();
-  screen.on('display-added', closeOverlays);
-  screen.on('display-removed', closeOverlays);
+  for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) {
+    screen.on(ev, () => { if (ev !== 'display-metrics-changed') closeOverlays(); resetSpares(); });
+  }
+  setTimeout(warmOverlays, 1500); // have a capture window ready before the first hotkey press
+  setTimeout(() => wingrab.start(log), 800); // Windows: fast screen grab helper
+  updates.init({ log, notify, refreshTrayMenu });
   if (process.argv.includes('--capture')) setTimeout(() => startCapture(), 500);
 });
 
 app.on('window-all-closed', (e) => e.preventDefault()); // stay alive in the tray
-app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('will-quit', () => { globalShortcut.unregisterAll(); wingrab.stop(); });
 
 // ---------------------------------------------------------------- tray
 function trayImage() {
@@ -90,7 +96,10 @@ function refreshTrayMenu() {
       : { label: '⚠︎ Screen Recording: Not Allowed — Fix…', click: () => showPermissionHelp() },
     { type: 'separator' },
   ] : [];
+  const upd = updates.state();
+  const updItems = upd ? [{ label: `⬆︎ Update Available: ${upd.version}…`, click: () => updates.offer() }, { type: 'separator' }] : [];
   const menu = Menu.buildFromTemplate([
+    ...updItems,
     ...permItems,
     { label: 'Capture Region', accelerator: s.hotkey || undefined, registerAccelerator: false, click: () => startCapture() },
     { label: 'Capture in 3 Seconds', click: () => setTimeout(() => startCapture(), 3000) },
@@ -100,6 +109,7 @@ function refreshTrayMenu() {
     { label: 'Close All Pins', enabled: pins.size > 0, click: () => [...pins.values()].forEach((p) => p.win.close()) },
     { type: 'separator' },
     { label: 'Open Screenshots Folder', click: () => openSaveDir() },
+    { label: 'Check for Updates…', click: () => updates.check({ manual: true }) },
     { label: 'Settings…', accelerator: isMac ? 'Command+,' : undefined, registerAccelerator: false, click: openSettings },
     { label: 'Show Log File', click: () => logFile && shell.showItemInFolder(logFile) },
     { type: 'separator' },
@@ -109,7 +119,9 @@ function refreshTrayMenu() {
 }
 
 // ---------------------------------------------------------------- hotkeys
-function registerHotkeys() {
+// While the capture overlay is open the global hotkeys are released, so a single-key hotkey (e.g. `) can still be
+// typed into a text box. They come back when the overlay closes.
+function registerHotkeys(quiet = false) {
   globalShortcut.unregisterAll();
   const s = settings.load();
   const failed = [];
@@ -122,7 +134,7 @@ function registerHotkeys() {
     }
   }
   log('hotkeys', { registered: [s.hotkey, s.altHotkey].filter((k) => k && !failed.includes(k)), failed });
-  if (failed.length) {
+  if (failed.length && !quiet) {
     notify('Hotkey unavailable', `Could not register ${failed.join(', ')}. Another app may own it — change it in Settings.`);
   }
   return failed;
@@ -177,8 +189,36 @@ async function showPermissionHelp() {
   if (r.response === 1) app.quit();
 }
 
+// Shots are { display, image } (desktopCapturer) or { display, raw: { buf, width, height } } (fast Windows grab).
+const shotSize = (s) => (s.raw ? { width: s.raw.width, height: s.raw.height } : s.image.getSize());
+const shotEmpty = (s) => (s.raw ? false : s.image.isEmpty());
+const shotBitmap = (s) => (s.raw ? s.raw.buf : s.image.toBitmap()); // raw BGRA
+const shotImage = (s) => s.image || nativeImage.createFromBitmap(s.raw.buf, { width: s.raw.width, height: s.raw.height });
+
+// Windows: GDI grab through the background helper (wingrab.js), ~4x faster than desktopCapturer.
+async function grabDisplaysFast(displays) {
+  if (!wingrab.isReady()) { wingrab.start(log); return null; } // (re)start it for next time; slow path now
+  const out = [];
+  for (const d of displays) {
+    const r = screen.dipToScreenRect(null, d.bounds); // DIP -> physical pixels
+    const buf = await wingrab.grabRect(r.x, r.y, r.width, r.height);
+    if (!buf) return null;
+    // an all-zero sample means the grab failed (a real black screen still has alpha 255)
+    const u32 = new Uint32Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 4));
+    let any = 0;
+    for (let i = 0; i < u32.length; i += 9973) any |= u32[i];
+    if (!any) { log('fast grab returned an empty image, using desktopCapturer'); return null; }
+    out.push({ display: d, raw: { buf, width: r.width, height: r.height } });
+  }
+  return out;
+}
+
 async function grabDisplays() {
   const displays = screen.getAllDisplays();
+  if (process.platform === 'win32') {
+    const fast = await grabDisplaysFast(displays).catch((e) => { log('fast grab error', String(e)); return null; });
+    if (fast) return fast;
+  }
   let maxW = 0;
   let maxH = 0;
   for (const d of displays) {
@@ -196,9 +236,20 @@ async function grabDisplays() {
   });
 }
 
+let captureT0 = 0;
+let hotkeysReleased = false;
+
+// Called whenever a capture ends (copy/save/cancel/error): give the hotkeys back and pre-load the next window.
+function endCapture() {
+  capturing = false;
+  if (hotkeysReleased) { hotkeysReleased = false; registerHotkeys(true); }
+  setTimeout(warmOverlays, 300);
+}
+
 async function startCapture() {
   if (capturing) return;
   capturing = true;
+  captureT0 = Date.now();
   try {
     log('capture start', `screen=${screenStatus()}`);
     if (!hasScreenPermission()) {
@@ -214,10 +265,11 @@ async function startCapture() {
         return;
       }
     }
-    const t0 = Date.now();
     const shots = await grabDisplays();
-    log('grabbed', shots.map((x) => ({ id: x.display.id, size: x.image.getSize(), empty: x.image.isEmpty() })), `${Date.now() - t0}ms`);
-    if (shots.every((x) => x.image.isEmpty())) throw new Error('Screen capture returned no image (Screen Recording permission?)');
+    log('grabbed', shots[0] && shots[0].raw ? 'gdi' : 'desktopCapturer', shots.map((x) => ({ id: x.display.id, size: shotSize(x), empty: shotEmpty(x) })), `${Date.now() - captureT0}ms`);
+    if (shots.every(shotEmpty)) throw new Error('Screen capture returned no image (Screen Recording permission?)');
+    globalShortcut.unregisterAll();
+    hotkeysReleased = true;
     const cursor = screen.getCursorScreenPoint();
     const s = settings.load();
     for (const shot of shots) openOverlay(shot, cursor, s);
@@ -232,30 +284,31 @@ async function startCapture() {
     }, 6000);
   } catch (e) {
     log('capture error', String(e && e.stack ? e.stack : e));
-    capturing = false;
     closeOverlays();
+    endCapture();
     notify('Capture failed', String(e && e.message ? e.message : e));
   }
 }
 
-function openOverlay({ display, image }, cursor, s) {
+// ---- pre-warmed overlay windows
+// Creating a window and loading the page costs ~150-200 ms, so one hidden, fully loaded overlay per display waits
+// for the next capture. It is used once, destroyed, and replaced, so no state can leak between captures.
+const spares = new Map(); // displayKey -> { win, ready: Promise }
+const displayKey = (d) => `${d.id}:${d.bounds.x},${d.bounds.y},${d.bounds.width}x${d.bounds.height}@${d.scaleFactor}`;
+
+function createOverlayWindow(display) {
   const b = display.bounds;
   const win = new BrowserWindow({
     x: b.x, y: b.y, width: b.width, height: b.height,
     show: false, frame: false, resizable: false, movable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, hasShadow: false, enableLargerThanScreen: true,
+    thickFrame: false, // Windows: no open/close animation, so the frozen screen appears in one frame like Lightshot
     alwaysOnTop: true, backgroundColor: '#000000', roundedCorners: false,
-    webPreferences: { preload: PRELOAD, contextIsolation: true, sandbox: true, backgroundThrottling: false },
+    webPreferences: { preload: PRELOAD, contextIsolation: true, sandbox: true, backgroundThrottling: false, spellcheck: false },
   });
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
-  win.setBounds(b); // macOS: cover the menu bar too
   win.setMenu(null);
-  overlays.set(win.webContents.id, { win, display });
-  win.on('closed', () => {
-    for (const [id, o] of overlays) if (o.win === win) overlays.delete(id);
-    if (overlays.size === 0) capturing = false;
-  });
   win.webContents.on('console-message', (...args) => {
     const ev = args[0] || {};
     const level = ev.level != null ? ev.level : args[1];
@@ -264,9 +317,50 @@ function openOverlay({ display, image }, cursor, s) {
   });
   win.webContents.on('render-process-gone', (_e, d) => log('overlay renderer gone', d));
   win.webContents.on('did-fail-load', (_e, code, desc) => log('overlay load failed', code, desc));
+  const ready = new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
   win.loadFile(path.join(RENDERER, 'overlay.html'));
-  win.webContents.once('did-finish-load', () => {
-    const size = image.getSize();
+  return { win, ready };
+}
+
+function warmOverlays() {
+  if (capturing || !app.isReady()) return;
+  const displays = screen.getAllDisplays();
+  const keys = new Set(displays.map(displayKey));
+  for (const [k, sp] of spares) {
+    if (!keys.has(k) || sp.win.isDestroyed()) { if (!sp.win.isDestroyed()) sp.win.destroy(); spares.delete(k); }
+  }
+  for (const d of displays) {
+    const k = displayKey(d);
+    if (spares.has(k)) continue;
+    const sp = createOverlayWindow(d);
+    sp.win.on('closed', () => { if (spares.get(k) === sp) spares.delete(k); });
+    spares.set(k, sp);
+  }
+}
+
+function resetSpares() {
+  for (const sp of spares.values()) if (!sp.win.isDestroyed()) sp.win.destroy();
+  spares.clear();
+  setTimeout(warmOverlays, 1000);
+}
+
+function openOverlay(shot, cursor, s) {
+  const { display } = shot;
+  const b = display.bounds;
+  const k = displayKey(display);
+  let sp = spares.get(k);
+  spares.delete(k);
+  if (!sp || sp.win.isDestroyed()) sp = createOverlayWindow(display);
+  const { win } = sp;
+  win.setBounds(b); // macOS: cover the menu bar too
+  overlays.set(win.webContents.id, { win, display });
+  win.on('closed', () => {
+    for (const [id, o] of overlays) if (o.win === win) overlays.delete(id);
+    if (overlays.size === 0 && capturing) endCapture();
+  });
+  sp.ready.then(() => {
+    if (win.isDestroyed()) return;
+    const size = shotSize(shot);
     const cursorHere = cursor.x >= b.x && cursor.x < b.x + b.width && cursor.y >= b.y && cursor.y < b.y + b.height;
     win.webContents.send('overlay:init', {
       displayId: display.id,
@@ -275,7 +369,7 @@ function openOverlay({ display, image }, cursor, s) {
       scaleFactor: display.scaleFactor,
       imgW: size.width,
       imgH: size.height,
-      bitmap: image.toBitmap(), // raw BGRA, no encode cost
+      bitmap: shotBitmap(shot), // raw BGRA, no encode cost
       cursor: cursorHere ? { x: cursor.x - b.x, y: cursor.y - b.y } : null,
       platform: process.platform,
       settings: s,
@@ -288,9 +382,10 @@ function overlayFor(sender) {
 }
 
 function closeOverlays() {
+  const had = overlays.size > 0;
   for (const { win } of overlays.values()) if (!win.isDestroyed()) win.destroy();
   overlays.clear();
-  capturing = false;
+  if (had || capturing) endCapture();
 }
 
 function hideOverlays() {
@@ -307,9 +402,10 @@ async function captureFullScreenToClipboard() {
   const d = screen.getDisplayNearestPoint(pt);
   const shots = await grabDisplays();
   const shot = shots.find((x) => x.display.id === d.id) || shots[0];
-  await clip.writePng(shot.image.toPNG());
-  if (settings.load().autoSaveCopy) writeToSaveDir(shot.image.toPNG(), 'png');
-  notify('Copied full screen', `${shot.image.getSize().width} × ${shot.image.getSize().height} px`);
+  const png = shotImage(shot).toPNG();
+  await clip.writePng(png);
+  if (settings.load().autoSaveCopy) writeToSaveDir(png, 'png');
+  notify('Copied full screen', `${shotSize(shot).width} × ${shotSize(shot).height} px`);
 }
 
 // ---------------------------------------------------------------- files
@@ -386,7 +482,7 @@ function notify(title, body, onClick) {
 ipcMain.on('overlay:ready', (e) => {
   const o = overlayFor(e.sender);
   if (!o) return;
-  log('overlay ready', o.display.id);
+  log('overlay ready', o.display.id, `${Date.now() - captureT0}ms after hotkey`);
   o.win.show();
   o.win.focus();
   if (isMac) app.focus({ steal: true });
@@ -540,7 +636,7 @@ ipcMain.on('pin:menu', (e) => {
 function openSettings() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
-    width: 520, height: 600, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    width: 520, height: 720, useContentSize: true, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
     title: 'SnapMark Settings', show: false, backgroundColor: '#1c1c1e',
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     webPreferences: { preload: PRELOAD, contextIsolation: true, sandbox: true },
@@ -551,7 +647,7 @@ function openSettings() {
   settingsWin.on('closed', () => { settingsWin = null; });
 }
 
-ipcMain.handle('settings:get', () => ({ settings: settings.load(), platform: process.platform, file: settings.file() }));
+ipcMain.handle('settings:get', () => ({ settings: settings.load(), platform: process.platform, file: settings.file(), version: app.getVersion() }));
 
 ipcMain.handle('settings:set', (_e, patch) => {
   const before = settings.load();
@@ -578,3 +674,4 @@ ipcMain.handle('settings:chooseDir', async () => {
 
 ipcMain.on('settings:suspendHotkeys', (_e, on) => (on ? globalShortcut.unregisterAll() : registerHotkeys()));
 ipcMain.on('settings:openDir', () => openSaveDir());
+ipcMain.handle('settings:checkUpdates', () => updates.check({ manual: true }).then((u) => !!u));

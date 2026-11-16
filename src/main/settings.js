@@ -17,6 +17,7 @@ const DEFAULTS = {
   exportScale: 'native', // native (keep Retina pixels) | 1x (downscale to points)
   autoSaveCopy: false, // also save every copied capture into saveDir
   launchAtLogin: false,
+  checkUpdates: true, // once a day, asks GitHub if a newer release exists (the app's only network request)
   // Last-used tool options (restored on next capture)
   color: '#FF3B30',
   width: 4,

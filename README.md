@@ -6,7 +6,7 @@
 
 <p align="center">
   A fast, private screenshot and markup tool for designers, for macOS and Windows.<br/>
-  Press a hotkey, drag a region, mark it up and copy it. It works offline and uploads nothing.
+  Press a hotkey, drag a region, mark it up and copy it. It works offline and uploads nothing (it only asks GitHub once a day whether there's a new version).
 </p>
 
 <p align="center">
@@ -36,7 +36,7 @@
   cut/paste/duplicate, undo/redo.
 - **Actions:** copy, save as PNG/JPG, quick save to a folder, and **pin** a screenshot to float above your work
   (zoom, change its opacity, drag it around).
-- **Private:** no network code, no analytics, no uploads.
+- **Private:** no analytics, no uploads. The only network request is a once-a-day update check against GitHub's public releases page (turn it off in Settings).
 
 ## Install
 
@@ -75,7 +75,7 @@ Update later with `brew upgrade --cask snapmark`.
 <summary><b>Why does macOS warn me?</b></summary>
 
 Apple shows this for any app that isn't *notarized*, which requires a paid Apple Developer membership that this
-free project doesn't have yet. SnapMark is open source, has no network code, and every release lists SHA-256
+free project doesn't have yet. SnapMark is open source, sends nothing about you, and every release lists SHA-256
 checksums on the [Releases](https://github.com/azaanmunir/snapmark/releases) page so you can verify your download.
 If you see *"SnapMark is damaged and can't be opened"*, run the `xattr` command above, or re-download the DMG.
 </details>

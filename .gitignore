@@ -5,3 +5,6 @@ dist/
 
 # private research notes (not published)
 docs/LIGHTSHOT_ANALYSIS.md
+
+# secrets (ElevenLabs key for marketing/reel)
+.env

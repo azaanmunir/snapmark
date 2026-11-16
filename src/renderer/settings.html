@@ -38,7 +38,7 @@
   </header>
   <main>
     <section>
-      <div class="row"><div><label>Capture hotkey</label><small>Click, then press a key combo · ⌫ clears</small></div><input id="hotkey" class="hk" type="text" readonly /></div>
+      <div class="row"><div><label>Capture hotkey</label><small>Click, then press a key or combo · ⌫ clears</small></div><input id="hotkey" class="hk" type="text" readonly /></div>
       <div class="row"><div><label>Second hotkey</label><small>Optional alternative</small></div><input id="altHotkey" class="hk" type="text" readonly /></div>
     </section>
     <section>
@@ -50,6 +50,7 @@
     </section>
     <section>
       <div class="row"><label>Launch at login</label><input id="launchAtLogin" type="checkbox" /></div>
+      <div class="row"><div><label>Check for updates</label><small id="ver">Once a day; only asks GitHub for the latest version number</small></div><div class="btns"><button id="checkNow">Check now</button><input id="checkUpdates" type="checkbox" /></div></div>
     </section>
     <div id="status"></div>
   </main>

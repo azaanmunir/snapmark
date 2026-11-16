@@ -9,6 +9,9 @@ and update it at the end of every session.
 src/main/main.js        main process: tray, global hotkeys, capture, overlay windows, pins, save/copy, settings IPC
 src/main/settings.js    JSON settings in app.getPath('userData')/settings.json (+ DEFAULTS)
 src/main/clip.js        clipboard helpers (Electron 45 workaround, see gotchas)
+src/main/wingrab.js     Windows fast screen grab: background PowerShell helper doing GDI BitBlt (~70 ms vs ~300 ms)
+src/main/updates.js     daily update check against GitHub releases (tray item + notification + Settings toggle)
+scripts/after-pack.js   build hook: drops unused Chromium DLLs from the Windows build (smaller app)
 src/main/preload.js     contextBridge API `window.snap` (only channel list; keep it narrow)
 src/renderer/overlay.*  the capture UI (one window per display): selection, loupe, tools, toolbars, export
 src/renderer/icons.js   inline SVG icon set (window.ICONS / window.icon())
@@ -23,7 +26,11 @@ docs/LIGHTSHOT_ANALYSIS.md  PRIVATE, gitignored: owner's notes on Lightshot's UX
 ```
 
 ## Key design facts
-* Capture = `desktopCapturer.getSources` thumbnails at physical resolution, taken **before** overlays show.
+* Capture = `desktopCapturer.getSources` thumbnails at physical resolution, taken **before** overlays show. On Windows
+  `wingrab.js` grabs first (GDI) and falls back to desktopCapturer if the helper isn't ready or fails.
+* Speed: one hidden, pre-loaded overlay window per display waits for the next capture (`spares` in main.js); it is used
+  once, destroyed and replaced. Global hotkeys are released while an overlay is open (single-key hotkeys stay typeable).
+  The log shows `grabbed gdi … Nms` and `overlay ready … Nms after hotkey` for timing.
   Raw BGRA (`toBitmap`) is sent to the overlay and converted to RGBA there (fast, lossless).
 * Overlay coordinates are **DIP/points**; `K = imgW / W` = physical px per point (2 on Retina). Mouse points are
   snapped to the physical pixel grid. Export renders at native pixels (or 1× if `exportScale === '1x'`).
@@ -35,6 +42,9 @@ docs/LIGHTSHOT_ANALYSIS.md  PRIVATE, gitignored: owner's notes on Lightshot's UX
   editor: `S.editing = {a, isNew, field?: 'label'}`, and `commitText()` writes it back.
 * Sizes are per tool: prefs `fontSize` (text), `numberSize`, `pointerSize` (`SIZEKEY`).
 * Undo = JSON snapshots (`pushUndo()` before any mutation).
+* Duplicating: Alt+drag a shape (copy made on first move), Ctrl/⌘D, the Duplicate button, or Ctrl/⌘C on a shape the
+  user *clicked* (`S.picked`) then Ctrl/⌘V. Shapes that are only auto-selected after placing/typing don't count, so
+  Ctrl/⌘C still copies the screenshot in the normal flow. The copied shape is kept in localStorage for the next capture.
 * Overlay → main: `snap.finish({action: copy|save|quicksave|pin, png, rect})`.
 * Only the drawing prefs (color/width/size/…) are written back to settings from the overlay.
 
@@ -65,7 +75,8 @@ npm run dist:win   # build NSIS installer + portable .exe (x64)
 * `npm start` (dev) runs as "Electron", which needs its own Screen Recording grant.
 * Windows: Win11 may bind PrintScreen to Snipping Tool (Settings → Accessibility → Keyboard → "Use the Print
   screen key to open screen capture"). Turn that off or use Ctrl+Shift+2.
-* No network code. Keep it that way unless the owner asks (privacy for client work).
+* Network: the ONLY request is the update check in `src/main/updates.js` (GET GitHub latest release, once a day,
+  toggle in Settings; owner asked for it 2026-11-16). Add nothing else unless the owner asks (privacy for client work).
 
 ## Working rules
 * Keep the UI dark, compact and precise (designer audience). Tooltips must show the shortcut.

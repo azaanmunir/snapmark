@@ -74,7 +74,8 @@
     drag: null,
     space: false,
     editing: null,
-    clip: null,
+    clip: null, // copied shape (Ctrl+C on a clicked shape, cut, duplicate); also kept in localStorage for the next capture
+    picked: null, // id of the shape the user clicked to select (Ctrl+C copies it instead of the screenshot)
     prefs: {},
   };
 
@@ -149,8 +150,13 @@
     K = IMGW / W;
     const src = new Uint8Array(d.bitmap.buffer || d.bitmap, d.bitmap.byteOffset || 0, IMGW * IMGH * 4);
     rgba = new Uint8ClampedArray(IMGW * IMGH * 4);
-    for (let i = 0; i < rgba.length; i += 4) { // BGRA -> RGBA
-      rgba[i] = src[i + 2]; rgba[i + 1] = src[i + 1]; rgba[i + 2] = src[i]; rgba[i + 3] = 255;
+    // BGRA -> RGBA, one 32-bit word per pixel (about 4x faster than per byte; 4K is 8.3 M pixels)
+    const n = IMGW * IMGH;
+    const out32 = new Uint32Array(rgba.buffer);
+    const in32 = src.byteOffset % 4 === 0 ? new Uint32Array(src.buffer, src.byteOffset, n) : new Uint32Array(src.slice().buffer, 0, n);
+    for (let i = 0; i < n; i++) {
+      const v = in32[i]; // little-endian 0xAARRGGBB -> 0xFFBBGGRR
+      out32[i] = 0xff000000 | (v & 0x0000ff00) | ((v >>> 16) & 0xff) | ((v & 0xff) << 16);
     }
     bmp = await createImageBitmap(new ImageData(rgba, IMGW, IMGH));
     canvas.width = Math.round(W * DPR);
@@ -311,6 +317,7 @@
       }
     }
     if (canEditSelected(selectedAnno())) {
+      elOpts.appendChild(btn({ icon: 'duplicate', tip: `Duplicate  ${MODK}D · ${isMac ? '⌥' : 'Alt+'}drag · ${MODK}C / ${MODK}V`, onClick: duplicate }));
       elOpts.appendChild(btn({ icon: 'trash', tip: 'Delete  ⌫', onClick: deleteSelected }));
     }
     layout();
@@ -1087,8 +1094,8 @@
       const h = handleAt(p);
       if (ah) c = ah === 'p1' || ah === 'p2' ? 'move' : CURSORS[ah];
       else if (h) c = CURSORS[h];
-      else if (LABELED.includes(S.tool) && S.annos.some((a) => a.type === S.tool && hit(a, p))) c = 'move';
-      else if (!S.tool) c = annoAt(p) ? 'move' : inRect(p, S.sel) ? 'move' : 'crosshair';
+      else if (LABELED.includes(S.tool) && S.annos.some((a) => a.type === S.tool && hit(a, p))) c = S.alt ? 'copy' : 'move';
+      else if (!S.tool) c = annoAt(p) ? (S.alt ? 'copy' : 'move') : inRect(p, S.sel) ? 'move' : 'crosshair';
       else if (S.tool === 'text') c = inRect(p, S.sel) ? 'text' : 'default';
       else c = inRect(p, S.sel) ? 'crosshair' : 'default';
     }
@@ -1130,9 +1137,10 @@
       const a = annoAt(p);
       if (a) {
         S.selectedId = a.id;
+        S.picked = a.id;
         loadPrefsFrom(a);
         buildOpts();
-        S.drag = { kind: 'moveanno', id: a.id, last: p, moved: false };
+        S.drag = { kind: 'moveanno', id: a.id, last: p, moved: false, dup: e.altKey };
         render();
         return;
       }
@@ -1172,6 +1180,7 @@
     const p = pt(e);
     const prev = S.mouse;
     S.mouse = p;
+    S.alt = e.altKey;
     const d = S.drag;
     if (!d) {
       updateCursor(p);
@@ -1203,9 +1212,21 @@
       if (d.h.includes('s')) y1 += dy;
       S.sel = normRect(clamp(x0, 0, W), clamp(y0, 0, H), clamp(x1, 0, W), clamp(y1, 0, H));
     } else if (d.kind === 'moveanno') {
-      const a = S.annos.find((x) => x.id === d.id);
+      let a = S.annos.find((x) => x.id === d.id);
       if (a) {
-        if (!d.moved) { pushUndo(); d.moved = true; document.body.classList.add('dragging'); }
+        if (!d.moved) {
+          pushUndo();
+          d.moved = true;
+          document.body.classList.add('dragging');
+          if (d.dup) { // Alt+drag: leave the original, drag a copy (created on first move, so Alt+click adds nothing)
+            a = cloneAnno(a);
+            S.annos.push(a);
+            d.id = a.id;
+            S.selectedId = a.id;
+            S.picked = a.id;
+            buildOpts();
+          }
+        }
         moveAnno(a, p.x - d.last.x, p.y - d.last.y);
       }
       d.last = p;
@@ -1293,9 +1314,10 @@
         // click = select (2nd click edits), drag = move
         const wasSelected = S.selectedId === hitText.id;
         S.selectedId = hitText.id;
+        S.picked = hitText.id;
         loadPrefsFrom(hitText);
         buildOpts();
-        S.drag = { kind: 'moveanno', id: hitText.id, last: p, moved: false, editOnClick: true, wasSelected };
+        S.drag = { kind: 'moveanno', id: hitText.id, last: p, moved: false, editOnClick: true, wasSelected, dup: e.altKey };
         render();
         return;
       }
@@ -1308,9 +1330,10 @@
       if (hitA) { // click = select (2nd click edits its label), drag = move
         const wasSelected = S.selectedId === hitA.id;
         S.selectedId = hitA.id;
+        S.picked = hitA.id;
         loadPrefsFrom(hitA);
         buildOpts();
-        S.drag = { kind: 'moveanno', id: hitA.id, last: p, moved: false, editOnClick: true, wasSelected };
+        S.drag = { kind: 'moveanno', id: hitA.id, last: p, moved: false, editOnClick: true, wasSelected, dup: e.altKey };
         render();
         return;
       }
@@ -1431,6 +1454,7 @@
     const ed = S.editing;
     if (!ed) return;
     S.editing = null;
+    S.picked = null; // after typing, Ctrl+C copies the screenshot again
     const text = elText.value.replace(/\s+$/, '');
     elText.hidden = true;
     elText.blur();
@@ -1492,26 +1516,59 @@
     render();
   }
 
+  const NAMES = { text: 'text', number: 'number', pointer: 'pointer', rect: 'rectangle', ellipse: 'ellipse', arrow: 'arrow', line: 'line' };
+  const shapeName = (a) => NAMES[a.type] || 'shape';
+
+  // deep copy with a new id; a copied step number gets the next free number
+  function cloneAnno(a) {
+    const c = JSON.parse(JSON.stringify(a));
+    c.id = nextId++;
+    if (c.type === 'number') c.n = nextNumber();
+    return c;
+  }
+
+  function setClip(a) {
+    S.clip = JSON.parse(JSON.stringify(a));
+    try { localStorage.setItem('snapmark.clip', JSON.stringify(S.clip)); } catch { /* ignore */ }
+  }
+
+  function copyShape() {
+    const a = selectedAnno();
+    if (!a) return;
+    setClip(a);
+    toast(`Copied ${shapeName(a)} — ${MODK}V to paste · Enter copies the screenshot`);
+  }
+
   function cut() {
     const a = selectedAnno();
     if (a) {
-      S.clip = JSON.parse(JSON.stringify(a));
+      setClip(a);
       deleteSelected();
-      toast('Shape cut — paste with ' + MODK + 'V');
+      toast(`Cut ${shapeName(a)} — paste with ${MODK}V`);
       return;
     }
     finish('copy');
   }
 
   function paste() {
+    if (!S.clip) {
+      try { S.clip = JSON.parse(localStorage.getItem('snapmark.clip') || 'null'); } catch { S.clip = null; }
+      if (S.clip) S.clip.fresh = true; // copied in an earlier capture
+    }
     if (!S.clip) return;
+    commitText();
     pushUndo();
-    const a = JSON.parse(JSON.stringify(S.clip));
-    a.id = nextId++;
-    moveAnno(a, 12, 12);
+    const a = cloneAnno(S.clip);
+    delete a.fresh;
+    const b = bbox(a);
+    const s = S.sel;
+    const inside = b.x < s.x + s.w && b.x + b.w > s.x && b.y < s.y + s.h && b.y + b.h > s.y;
+    if (S.clip.fresh || !inside) moveAnno(a, s.x + s.w / 2 - (b.x + b.w / 2), s.y + s.h / 2 - (b.y + b.h / 2)); // center it
+    else moveAnno(a, 12, 12); // next to the original, like Figma
     S.clip = JSON.parse(JSON.stringify(a));
     S.annos.push(a);
     S.selectedId = a.id;
+    S.picked = a.id;
     S.tool = null;
     syncTools(); buildOpts(); render();
   }
@@ -1519,7 +1576,7 @@
   function duplicate() {
     const a = selectedAnno();
     if (!a) return;
-    S.clip = JSON.parse(JSON.stringify(a));
+    setClip(a);
     paste();
   }
 
@@ -1564,6 +1621,7 @@
     const mod = isMac ? e.metaKey : e.ctrlKey;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (k === ' ') { S.space = true; e.preventDefault(); return; }
+    if (k === 'Alt') { e.preventDefault(); S.alt = true; updateCursor(S.mouse); return; } // Alt+drag duplicates
     if (k === 'Escape') { e.preventDefault(); api.cancel(); return; }
 
     if (!mod && k === 'c' && S.phase !== 'selecting') {
@@ -1581,7 +1639,8 @@
 
     if (mod) {
       e.preventDefault();
-      if (k === 'c') return finish('copy');
+      // a shape you clicked is copied like in Figma; otherwise (or with nothing clicked) the screenshot is copied
+      if (k === 'c') return selectedAnno() && S.picked === S.selectedId ? copyShape() : finish('copy');
       if (k === 's') return finish(e.shiftKey ? 'quicksave' : 'save');
       if (k === 'x') return cut();
       if (k === 'v') return paste();
@@ -1624,7 +1683,8 @@
 
   window.addEventListener('keyup', (e) => {
     if (e.key === ' ') S.space = false;
+    if (e.key === 'Alt') { e.preventDefault(); S.alt = false; if (bmp) updateCursor(S.mouse); }
   });
 
-  window.addEventListener('blur', () => { S.space = false; });
+  window.addEventListener('blur', () => { S.space = false; S.alt = false; });
 })();

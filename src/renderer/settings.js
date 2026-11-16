@@ -2,7 +2,8 @@
   const api = window.snap;
   const $ = (id) => document.getElementById(id);
   const status = $('status');
-  let { settings: S, platform } = await api.getSettings();
+  let { settings: S, platform, version } = await api.getSettings();
+  document.querySelector('header p').textContent = `Screenshot & markup for designers · v${version}`;
   const isMac = platform === 'darwin';
 
   const PRETTY = isMac
@@ -17,11 +18,12 @@
     say.t = setTimeout(() => { status.textContent = ''; }, 3500);
   }
 
-  async function update(patch) {
+  async function update(patch, note) {
     const r = await api.setSettings(patch);
     S = r.settings;
     paint();
     if (r.failed && r.failed.length) say(`Couldn't register ${r.failed.map(pretty).join(', ')} — it may be used by another app.`, true);
+    else if (note) say(note, true);
     else say('Saved');
   }
 
@@ -35,13 +37,22 @@
     $('exportScale').value = S.exportScale;
     $('autoSaveCopy').checked = !!S.autoSaveCopy;
     $('launchAtLogin').checked = !!S.launchAtLogin;
+    $('checkUpdates').checked = S.checkUpdates !== false;
   }
 
   // ---- hotkey recorder
   const KEYMAP = { ' ': 'Space', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', Escape: 'Esc', Enter: 'Return', '+': 'Plus' };
+  // physical punctuation keys, so Shift doesn't turn ` into ~ (Electron wants the unshifted key)
+  const CODEMAP = {
+    Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';',
+    Quote: "'", Comma: ',', Period: '.', Slash: '/', Insert: 'Insert', Home: 'Home', End: 'End', PageUp: 'PageUp',
+    PageDown: 'PageDown', ScrollLock: 'Scrolllock', Tab: 'Tab',
+  };
   function keyName(e) {
     if (/^Key[A-Z]$/.test(e.code)) return e.code.slice(3);
     if (/^Digit[0-9]$/.test(e.code)) return e.code.slice(5);
+    if (/^Numpad[0-9]$/.test(e.code)) return `num${e.code.slice(6)}`;
+    if (CODEMAP[e.code]) return CODEMAP[e.code];
     if (/^F\d{1,2}$/.test(e.key)) return e.key;
     if (e.key === 'PrintScreen' || e.code === 'PrintScreen') return 'PrintScreen';
     if (KEYMAP[e.key]) return KEYMAP[e.key];
@@ -69,11 +80,12 @@
       if (e.ctrlKey) mods.push('Control');
       if (e.altKey) mods.push('Alt');
       if (e.shiftKey) mods.push('Shift');
-      const standalone = key === 'PrintScreen' || /^F\d{1,2}$/.test(key);
-      if (!mods.length && !standalone) { el.value = 'Add a modifier'; return; }
+      // One key on its own is fine too (PrintScreen, F1, ` …). Keys you type with get a warning: a global
+      // hotkey takes that key away from every other app while SnapMark runs.
       const acc = [...mods, key].join('+');
       el.blur();
-      update({ [id]: acc });
+      const typingKey = !mods.length && (key.length === 1 || /^num\d$/.test(key) || ['Space', 'Tab', 'Return'].includes(key));
+      update({ [id]: acc }, typingKey ? `Set to ${pretty(acc)} — note: other apps can't use this key while SnapMark runs.` : '');
     });
   }
   // PrintScreen often only fires keyup on Windows
@@ -96,6 +108,8 @@
   $('exportScale').addEventListener('change', (e) => update({ exportScale: e.target.value }));
   $('autoSaveCopy').addEventListener('change', (e) => update({ autoSaveCopy: e.target.checked }));
   $('launchAtLogin').addEventListener('change', (e) => update({ launchAtLogin: e.target.checked }));
+  $('checkUpdates').addEventListener('change', (e) => update({ checkUpdates: e.target.checked }));
+  $('checkNow').addEventListener('click', () => api.checkUpdates());
 
   paint();
 })();

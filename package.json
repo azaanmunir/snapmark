@@ -48,6 +48,11 @@
       "assets/**/*",
       "package.json"
     ],
+    "electronLanguages": [
+      "en-US"
+    ],
+    "compression": "maximum",
+    "afterPack": "scripts/after-pack.js",
     "mac": {
       "target": [
         {

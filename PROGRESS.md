@@ -34,8 +34,18 @@ Screen Recording grant and a hands-on check.
 - [x] Settings window: hotkey recorder ×2, save folder, filename pattern, PNG/JPG, native/1× export,
       keep a copy of every capture, launch at login
 - [x] Icons generated, macOS DMG (arm64 + x64) and Windows NSIS + portable build scripts
+- [x] Duplicate shapes: Alt+drag, Ctrl/⌘D, Duplicate button, Ctrl/⌘C on a clicked shape → Ctrl/⌘V (works across captures)
+- [x] Single-key global hotkeys (e.g. ` or F1), with a warning for typing keys; hotkeys are released while capturing
+- [x] Update check (daily, GitHub releases → tray item + notification, Settings toggle + "Check now")
+- [x] Faster capture: pre-loaded overlay windows, GDI grab on Windows, no Windows open animation (~540 → ~170 ms)
+- [x] Smaller Windows build: English-only locales, unused Chromium DLLs dropped, max compression (~-80 MB installed)
 
 ## Next (suggested)
+- [ ] **Release v0.2.0** (not done yet): bump version → build on the Mac (`npm run dist:mac && npm run dist:win`) →
+      GitHub release. v0.1.0 users have no update check, so they must download v0.2.0 once by hand (brew users:
+      `brew upgrade --cask snapmark`); from v0.2.0 on they get notified.
+- [ ] Owner: try v0.2.0 on Windows: hotkey → overlay should feel instant; check no flash/animation
+- [ ] Optional big one: rebuild on Tauri for a ~10 MB app (Electron's bundled Chrome is the 290 MB floor)
 - [ ] Stable code-signing identity (self-signed cert in the login keychain), so a full reinstall keeps the Screen
       Recording grant. For now, `npm run update:mac` swaps only app.asar and keeps the grant.
 - [ ] Owner: grant Screen Recording, try real captures on the Mac, list what feels off
@@ -87,4 +97,35 @@ Screen Recording grant and a hands-on check.
   (System Settings → Open Anyway; right-click → Open no longer works on Sequoia) plus the `xattr` one-liner.
   The DMG apps have valid ad-hoc signatures, so users get "can't verify", not "damaged". This Mac has Gatekeeper
   disabled, so the actual warning dialog couldn't be reproduced here.
+- **2026-11-10 (later)**: Made a 49 s launch reel for Instagram/TikTok in the SevenT3 explainer's motion style
+  (per-character rises, words on beats, spring chips, an orbiting chip ring, a floating 3D window). The pipeline is in
+  `marketing/reel/` (see its README): `ui-clips.js` drives the real overlay with scripted input and records it frame by frame,
+  `render.js` renders `reel.html` offscreen with 4-sub-frame motion blur, and `audio.py` mixes the music edit + SFX.
+  The owner's phone footage (IMG_4379.MOV) is used too. The output goes to `dist/reel/SnapMark_Reel_9x16.mp4` and the
+  caption to `marketing/reel/CAPTION.md`. Intermediates are in `~/Library/Caches/SnapMark-reel`. The audio was checked
+  by analysis only, not by listening. On the owner's request I added a first-person voiceover using the local Kokoro
+  model (`vo.py`, voice am_michael at 1.05×, the model comes from the Survival by Math project). Each line sits on the
+  bar grid, all 20 lines were checked with whisper-cli, and the music ducks under the speech. The reel is now 50 s.
+  The final VO is in the owner's own ElevenLabs voice ("Azaan", a professional clone) via `vo_eleven.py`. The key is in the repo
+  root `.env`, which is now in .gitignore. Takes are cached by request hash, so re-runs cost no credits. The full mix
+  transcribes word for word.
 
+- **2026-11-16** (Windows PC): Owner asked for (1) copy/paste/duplicate of text and shapes incl. an Alt shortcut,
+  (2) one-key hotkeys, (3) updates for existing users, (4) a smaller app, (5) Lightshot-smooth capture start.
+  Done: Alt+drag / Ctrl+D / Duplicate button / Ctrl+C on a *clicked* shape + Ctrl+V (auto-selected shapes don't count,
+  so annotate → Ctrl+C still copies the screenshot); step numbers get the next number when copied. Hotkey recorder
+  accepts a bare key. `updates.js` (only network request; README + CLAUDE.md updated). Capture: spare overlay windows,
+  `thickFrame:false`, Uint32 BGRA→RGBA, and `wingrab.js` (persistent PowerShell + GDI BitBlt, falls back to
+  desktopCapturer). Measured on this PC (4K @150%): hotkey → overlay 540 ms → ~170 ms (grab 300 → 70 ms, overlay
+  185 → ~100 ms). Size: installed 374 → ~291 MB, download ~117 → ~99 MB (estimate; no Windows build run here).
+  Tested with a copy of the installed Windows SnapMark 0.1.0 (Electron 45.2.1) as the runtime: `npm test` equivalent
+  passes incl. new DUPLICATE test; real captures timed with a harness; GDI image matched desktopCapturer pixel-for-
+  pixel visually; settings recorder checked; update check hit GitHub OK. Not tested: macOS (pre-warm path, no
+  wingrab there), multi-monitor mixed DPI with GDI, the visual "glitch" fix by eye, the trimmed build itself.
+  Version still 0.1.0 in package.json (bump at release).
+  Later checks: a bare-key hotkey (Scroll Lock) really registers, is released during capture and comes back after;
+  capture after 6 min idle is still ~195 ms. "Pause" is not a valid Electron key (removed from the recorder).
+  Memory cost: idle Electron 174 → ~293 MB (the pre-loaded overlay window), plus the PowerShell helper (~60 MB
+  private, trimmed to ~1 MB working set after each grab). `electronLanguages: en-US` keeps mac `en.lproj`
+  (checked in app-builder-lib). Test runtime trick: copy the installed SnapMark folder, rename the exe to
+  electron.exe, delete resources/app.asar and add resources/app/{package.json,shim.js} that requires $SM_ENTRY.

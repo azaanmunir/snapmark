@@ -170,6 +170,25 @@ app.whenReady().then(async () => {
   await key('V');
   await shot('05-labels.png');
 
+  // ---- duplicate: Alt+drag a shape, Ctrl+C / Ctrl+V a clicked shape (must not copy the screenshot), undo
+  const before = await js('__S.annos.length');
+  const ptr = await js(`(() => { const a = __S.annos.find(a => a.type === 'pointer' && a.label); const b = __T.bbox(a); return { id: a.id, x: a.x, y: a.y, cx: b.x + b.w / 2, cy: b.y + b.h / 2 }; })()`);
+  await click(ptr.cx, ptr.cy); // select it
+  await dragFrom(ptr.cx, ptr.cy, ptr.cx, ptr.cy + 80, ['alt']);
+  const afterAlt = await js(`({ n: __S.annos.length, orig: (({ x, y }) => ({ x, y }))(__S.annos.find(a => a.id === ${ptr.id})), copy: (({ x, y, label }) => ({ x, y, label }))(__S.annos[__S.annos.length - 1]) })`);
+  await key('C', [MOD]);
+  await sleep(150);
+  const copiedShot = results.filter((r) => r.startsWith('finish:copy')).length;
+  await key('V', [MOD]);
+  const afterPaste = await js('__S.annos.length');
+  await key('Z', [MOD]);
+  const afterUndo = await js('__S.annos.length');
+  const dupOk = afterAlt.n === before + 1 && afterAlt.orig.x === ptr.x && afterAlt.orig.y === ptr.y
+    && Math.round(afterAlt.copy.y - ptr.y) === 80 && afterAlt.copy.label === 'Click here'
+    && copiedShot === 0 && afterPaste === before + 2 && afterUndo === before + 1;
+  console.log(dupOk ? 'DUPLICATE OK' : 'DUPLICATE FAILED', JSON.stringify({ before, afterAlt, copiedShot, afterPaste, afterUndo }));
+  await shot('06-duplicate.png');
+
   // eyedropper
   await key('I');
   await click(400, 200);
@@ -183,7 +202,7 @@ app.whenReady().then(async () => {
     const { nativeImage } = require('electron');
     console.log('export size', JSON.stringify(nativeImage.createFromPath(exp).getSize()));
   }
-  const ok = textOk && labelOk && s.n >= 12 && results.some((r) => r.startsWith('finish:copy')) && results.some((r) => r.startsWith('clipboard:#'));
+  const ok = textOk && labelOk && dupOk && s.n >= 12 && results.some((r) => r.startsWith('finish:copy')) && results.some((r) => r.startsWith('clipboard:#'));
   console.log(ok ? 'SMOKE OK' : 'SMOKE FAILED');
   app.exit(ok ? 0 : 1);
 });
