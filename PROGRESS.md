@@ -2,7 +2,7 @@
 
 Read this first in every new session, and update it before ending one.
 
-## Status (v0.1.0, 2026-11-10, public at https://github.com/azaanmunir/snapmark)
+## Status (v0.2.0 Windows / v0.1.0 Mac, 2026-11-17, public at https://github.com/azaanmunir/snapmark)
 Working MVP. Overlay, all tools and export pass the headless smoke test (`npm test`). The macOS app is built and
 installed to `~/Applications/SnapMark.app`, with DMGs in `dist/`. The Windows NSIS installer and portable .exe are built in
 `dist/` but haven't been run on Windows yet. The live capture on real screens still needs the owner's
@@ -41,16 +41,18 @@ Screen Recording grant and a hands-on check.
 - [x] Smaller Windows build: English-only locales, unused Chromium DLLs dropped, max compression (~-80 MB installed)
 
 ## Next (suggested)
-- [ ] **Release v0.2.0** (not done yet): bump version → build on the Mac (`npm run dist:mac && npm run dist:win`) →
-      GitHub release. v0.1.0 users have no update check, so they must download v0.2.0 once by hand (brew users:
-      `brew upgrade --cask snapmark`); from v0.2.0 on they get notified.
+- [x] **Released v0.2.0 for Windows** (2026-11-17): Tauri installer `SnapMark_0.2.0_x64-setup.exe` on GitHub
+      (Latest). README sends Mac users to v0.1.0. Homebrew cask is still 0.1.0 (don't run update-cask.sh until a
+      Mac 0.2.x DMG is attached to a release).
+- [ ] **Mac release**: port Tauri to macOS (or build Electron 0.2.x on the Mac), publish e.g. v0.2.1 with DMGs, then
+      `scripts/update-cask.sh` and point the README Mac link back to releases/latest. v0.1.0 users have no update
+      check, so they must download once by hand (brew users: `brew upgrade --cask snapmark`).
 - [ ] Owner: try v0.2.0 on Windows: hotkey → overlay should feel instant; check no flash/animation
 - [x] Tauri rebuild for Windows (2026-11-17): 2.5 MB installer, ~115 ms capture start, all features ported
 - [ ] **Port the Tauri build to macOS** (on the Mac): native grab + Screen Recording permission + frame transport +
       blur fallback; then `npm run dist:tauri` there. Until then the Mac keeps the Electron build.
 - [x] Tauri build installed on the owner's Windows PC (2026-11-17); 0.1.0 removed by the installer hook
 - [ ] Owner: use it for a while and list what feels off (Save As, pin menu/opacity, full screen → clipboard, notifications untested by hand)
-- [ ] Release: decide whether v0.2.0 ships as Tauri (Windows) + Electron (Mac) or wait for the Mac port
 - [ ] Stable code-signing identity (self-signed cert in the login keychain), so a full reinstall keeps the Screen
       Recording grant. For now, `npm run update:mac` swaps only app.asar and keeps the grant.
 - [ ] Owner: grant Screen Recording, try real captures on the Mac, list what feels off
@@ -161,3 +163,7 @@ Screen Recording grant and a hands-on check.
   Electron 0.1.0 (folder + uninstall key gone), new app in %LOCALAPPDATA%\SnapMark (Start menu shortcut, uninstall entry
   "SnapMark 0.2.0"), settings.json kept. Started it: hotkeys Alt+` and Ctrl+Shift+2 registered; a real Alt+` opened
   the capture screen in 131 ms and Esc closed it. Rollback: dist/SnapMark Setup 0.1.0.exe. Still nothing committed.
+- **2026-11-17 (release)**: Committed the Tauri work (513f266), pushed, and published GitHub release v0.2.0
+  (Windows only, 2.5 MB installer, SHA-256 026d34dc…ebc5, re-downloaded and verified). Rebuilt the installer first
+  because hooks.nsh had changed after the earlier build. README updated: Windows → new installer, Mac → v0.1.0.
+  `npm run check` fails under cmd.exe on Windows (bash `for` loop); run the loop in Git Bash instead.
