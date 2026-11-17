@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SnapMark",
+  "version": "0.2.0",
+  "identifier": "com.azaan.snapmark",
+  "build": {
+    "frontendDist": "../src/renderer"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "dmg"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico",
+      "icons/icon.icns"
+    ],
+    "publisher": "Azaan Ali",
+    "shortDescription": "Fast, private screenshot and markup tool for designers",
+    "copyright": "MIT License",
+    "category": "Graphics and Design",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "12.3",
+      "signingIdentity": "-"
+    }
+  }
+}

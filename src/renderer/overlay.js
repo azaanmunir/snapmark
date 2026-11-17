@@ -149,14 +149,18 @@
     }
     K = IMGW / W;
     const src = new Uint8Array(d.bitmap.buffer || d.bitmap, d.bitmap.byteOffset || 0, IMGW * IMGH * 4);
-    rgba = new Uint8ClampedArray(IMGW * IMGH * 4);
-    // BGRA -> RGBA, one 32-bit word per pixel (about 4x faster than per byte; 4K is 8.3 M pixels)
-    const n = IMGW * IMGH;
-    const out32 = new Uint32Array(rgba.buffer);
-    const in32 = src.byteOffset % 4 === 0 ? new Uint32Array(src.buffer, src.byteOffset, n) : new Uint32Array(src.slice().buffer, 0, n);
-    for (let i = 0; i < n; i++) {
-      const v = in32[i]; // little-endian 0xAARRGGBB -> 0xFFBBGGRR
-      out32[i] = 0xff000000 | (v & 0x0000ff00) | ((v >>> 16) & 0xff) | ((v & 0xff) << 16);
+    if (d.rgba) { // Tauri on Windows: already RGBA (converted natively), use it as is
+      rgba = new Uint8ClampedArray(src.buffer, src.byteOffset, IMGW * IMGH * 4);
+    } else {
+      rgba = new Uint8ClampedArray(IMGW * IMGH * 4);
+      // BGRA -> RGBA, one 32-bit word per pixel (about 4x faster than per byte; 4K is 8.3 M pixels)
+      const n = IMGW * IMGH;
+      const out32 = new Uint32Array(rgba.buffer);
+      const in32 = src.byteOffset % 4 === 0 ? new Uint32Array(src.buffer, src.byteOffset, n) : new Uint32Array(src.slice().buffer, 0, n);
+      for (let i = 0; i < n; i++) {
+        const v = in32[i]; // little-endian 0xAARRGGBB -> 0xFFBBGGRR
+        out32[i] = 0xff000000 | (v & 0x0000ff00) | ((v >>> 16) & 0xff) | ((v & 0xff) << 16);
+      }
     }
     bmp = await createImageBitmap(new ImageData(rgba, IMGW, IMGH));
     canvas.width = Math.round(W * DPR);

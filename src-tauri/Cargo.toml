@@ -1,0 +1,35 @@
+[package]
+name = "snapmark"
+version = "0.2.0"
+description = "Fast, private screenshot and markup tool for designers"
+edition = "2021"
+license = "MIT"
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.5", features = ["tray-icon", "image-png"] }
+tauri-plugin-global-shortcut = "=2.4.1"
+tauri-plugin-dialog = "=2.8.3"
+tauri-plugin-notification = "=2.7.0"
+tauri-plugin-autostart = "=2.7.0"
+tauri-plugin-single-instance = "=2.5.4"
+tauri-plugin-opener = "=2.7.2"
+ureq = { version = "=3.5.0", features = ["json"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+arboard = "=3.7.0"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "=0.39.1" # same version Tauri's wry uses, so the WebView2 types match
+windows-core = "0.62"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

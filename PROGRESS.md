@@ -45,7 +45,12 @@ Screen Recording grant and a hands-on check.
       GitHub release. v0.1.0 users have no update check, so they must download v0.2.0 once by hand (brew users:
       `brew upgrade --cask snapmark`); from v0.2.0 on they get notified.
 - [ ] Owner: try v0.2.0 on Windows: hotkey → overlay should feel instant; check no flash/animation
-- [ ] Optional big one: rebuild on Tauri for a ~10 MB app (Electron's bundled Chrome is the 290 MB floor)
+- [x] Tauri rebuild for Windows (2026-11-17): 2.5 MB installer, ~115 ms capture start, all features ported
+- [ ] **Port the Tauri build to macOS** (on the Mac): native grab + Screen Recording permission + frame transport +
+      blur fallback; then `npm run dist:tauri` there. Until then the Mac keeps the Electron build.
+- [x] Tauri build installed on the owner's Windows PC (2026-11-17); 0.1.0 removed by the installer hook
+- [ ] Owner: use it for a while and list what feels off (Save As, pin menu/opacity, full screen → clipboard, notifications untested by hand)
+- [ ] Release: decide whether v0.2.0 ships as Tauri (Windows) + Electron (Mac) or wait for the Mac port
 - [ ] Stable code-signing identity (self-signed cert in the login keychain), so a full reinstall keeps the Screen
       Recording grant. For now, `npm run update:mac` swaps only app.asar and keeps the grant.
 - [ ] Owner: grant Screen Recording, try real captures on the Mac, list what feels off
@@ -129,3 +134,30 @@ Screen Recording grant and a hands-on check.
   private, trimmed to ~1 MB working set after each grab). `electronLanguages: en-US` keeps mac `en.lproj`
   (checked in app-builder-lib). Test runtime trick: copy the installed SnapMark folder, rename the exe to
   electron.exe, delete resources/app.asar and add resources/app/{package.json,shim.js} that requires $SM_ENTRY.
+- **2026-11-17** (Windows PC): Owner asked to do the Tauri rebuild. Installed (after Defender scan + checksum/signature
+  checks, logged in ~/.claude/library/library.json): VS 2022 Build Tools (C++), Rust 1.100 (rustup), Tauri CLI 2.12.4.
+  Spike first (grab + pre-loaded overlay): IPC hand-off of the 33 MB frame took ~230 ms, so switched to WebView2 shared
+  buffers -> ~115 ms hotkey-to-overlay (Electron 0.2.0: ~170 ms, 0.1.0: ~540 ms). Then ported everything to
+  `src-tauri/src/main.rs`: tray menu, hotkeys (Electron accelerator strings converted), released during capture,
+  copy (arboard: PNG + DIB formats), save dialog, quick save, JPG, pins (zoom/move/opacity/menu/copy/save), full
+  screen -> clipboard, pin from clipboard, settings window (same page), login item, single instance (`--capture`,
+  `--settings`), update check (ureq), watchdog, log file. NSIS hook removes the Electron install.
+  Sizes: installer 2.5 MB (Electron 121 MB), app exe 7.4 MB. Idle memory ~160 MB private (WebView2 is Chromium too, so
+  RAM is about the same as Electron with the pre-loaded window; the win is download/disk).
+  Tested end to end over WebView2 DevTools (CDP script in the session scratchpad): capture, Ctrl+C (clipboard had
+  900x600 image with PNG+DIB formats), arrow + Ctrl+Shift+S quick save (file checked by eye), Ctrl+P pin (image shown,
+  Ctrl+C copies, = zooms, Shift+arrow moves, Esc closes), cancel + recapture, --settings, version label, one-key
+  hotkey F9 saved: 13/13 pass. Real OS hotkey (Alt+` via keybd_event) after 6 min idle: overlay ready in 141 ms and
+  it is the foreground window with document focus; hotkeys come back after cancel. Rust update check ran (log line).
+  Security: Defender scanned ~/.cargo and ~/.rustup (clean); OSV on all 555 Cargo.lock crates: only 5 hits, all
+  Linux-only crates (glib, zbus/zvariant, proc-macro-error) that aren't in the Windows or macOS builds.
+  Electron smoke test still passes with the shared page changes.
+  NOT tested: the installer itself (it removes the owner's installed 0.1.0; waiting for OK; rollback = dist/SnapMark
+  Setup 0.1.0.exe), Save As dialog, folder chooser, pin right-click menu + opacity, full screen -> clipboard,
+  clipboard -> pin, launch at login, notifications, tray clicks by hand, multi-monitor, macOS (not ported).
+  `package-lock.json` doesn't list the new `@tauri-apps/cli` devDependency yet: run `npm install` on the Mac
+  (not on this PC: the shared node_modules holds the Mac Electron binary).
+- **2026-11-17 (later)**: Owner said install it. Ran the Tauri NSIS installer silently (`/S`): exit 0, the hook removed
+  Electron 0.1.0 (folder + uninstall key gone), new app in %LOCALAPPDATA%\SnapMark (Start menu shortcut, uninstall entry
+  "SnapMark 0.2.0"), settings.json kept. Started it: hotkeys Alt+` and Ctrl+Shift+2 registered; a real Alt+` opened
+  the capture screen in 131 ms and Esc closed it. Rollback: dist/SnapMark Setup 0.1.0.exe. Still nothing committed.

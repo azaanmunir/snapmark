@@ -1,12 +1,17 @@
 # SnapMark: project guide for Claude
 
-A Lightshot-style screenshot + markup tool for a **designer**, for **macOS and Windows**. Built with Electron
-(plain JS, no bundler, no framework). Owner refines it over many sessions, so **always read `PROGRESS.md` first**
+A Lightshot-style screenshot + markup tool for a **designer**, for **macOS and Windows**. Plain JS pages (no bundler,
+no framework) in two shells: **Tauri** (`src-tauri/`, Rust, the shipping app: 2.5 MB installer, Windows done, macOS
+still to port) and **Electron** (`src/main/`, the original; kept for macOS until the port and as the test harness). Owner refines it over many sessions, so **always read `PROGRESS.md` first**
 and update it at the end of every session.
 
 ## Layout
 ```
-src/main/main.js        main process: tray, global hotkeys, capture, overlay windows, pins, save/copy, settings IPC
+src-tauri/src/main.rs   TAURI shell: tray, hotkeys, GDI grab, pre-loaded overlays, WebView2 shared-memory frame hand-off,
+                        copy/save/pin, settings window, login item (Rust). settings.rs / updates.rs beside it.
+src-tauri/windows/hooks.nsh  installer hook: removes the old Electron install (%LOCALAPPDATA%\Programs\SnapMark)
+src/renderer/tauri-bridge.js  Tauri only: provides the same `window.snap` API as preload.js (injected init script)
+src/main/main.js        ELECTRON main process: tray, global hotkeys, capture, overlay windows, pins, save/copy, settings IPC
 src/main/settings.js    JSON settings in app.getPath('userData')/settings.json (+ DEFAULTS)
 src/main/clip.js        clipboard helpers (Electron 45 workaround, see gotchas)
 src/main/wingrab.js     Windows fast screen grab: background PowerShell helper doing GDI BitBlt (~70 ms vs ~300 ms)
@@ -57,7 +62,24 @@ npm run icons      # regenerate icons
 npm run update:mac # DAY-TO-DAY: rebuild code, swap app.asar in /Applications/SnapMark.app (keeps Screen Recording grant)
 npm run dist:mac   # build .dmg (arm64 + x64); updates the installed app's code (FORCE_INSTALL=1 replaces the whole app)
 npm run dist:win   # build NSIS installer + portable .exe (x64)
+npm run dist:tauri # TAURI build (Windows: NSIS ~2.5 MB; macOS: .app/.dmg once ported) -> ./dist
 ```
+
+## Tauri port (2026-11-17)
+* Pages are shared. Anything the pages call goes through `window.snap`; add it to BOTH preload.js and tauri-bridge.js
+  (+ a `#[tauri::command]` in main.rs and `generate_handler!`).
+* Frame hand-off: Windows posts the RGBA frame via WebView2 `PostSharedBufferToScript` (0 ms vs ~230 ms through IPC);
+  the page gets `rgba: true` and skips its own BGRA->RGBA. Fallback/other OS: `overlay:init` event + `overlay_frame`
+  raw-bytes command. Measured: hotkey -> overlay ready ~115 ms (Electron 0.1: ~540 ms).
+* **macOS is NOT ported yet**: `grab_monitor` returns None on mac. Needs (on the Mac): ScreenCaptureKit or
+  CGDisplayCreateImage grab, Screen Recording permission flow (see Electron main.js), a fast frame transport for
+  WKWebView (no shared buffer: try a custom URI scheme), and a `ctx.filter` fallback for the blur tool (Safari < 18).
+* Builds: Rust + VS C++ Build Tools on Windows (installed 2026-11-17), Xcode CLT on mac. Cargo target dir is on the
+  internal disk (`scripts/build-tauri.sh`). Direct dependencies + the CLI are pinned to releases >= 3 weeks old;
+  transitive crates are whatever resolved on 2026-11-17, held by `src-tauri/Cargo.lock` (commit it).
+* Same settings.json/log locations as Electron, so users keep their settings when switching.
+* Test the real Tauri app end-to-end through WebView2 DevTools: run it with
+  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333` and drive pages over CDP (see PROGRESS.md log).
 
 ## Gotchas
 * The repo lives on an **exFAT** drive. macOS writes `._*` AppleDouble files there; they break asar packaging, so

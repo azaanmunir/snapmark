@@ -52,7 +52,8 @@ Update later with `brew upgrade --cask snapmark`.
 
 ### macOS: download the DMG
 
-1. Download from **[Releases](https://github.com/azaanmunir/snapmark/releases/latest)**:
+1. Download from **[Release v0.1.0](https://github.com/azaanmunir/snapmark/releases/tag/v0.1.0)** (the newest Mac
+   build; v0.2.0 is Windows-only for now):
    `SnapMark-x.y.z-arm64.dmg` for Apple Silicon (M1–M4) or `SnapMark-x.y.z.dmg` for Intel.
    Not sure which you have? Apple menu → **About This Mac** → *Chip*.
 2. Open the DMG and drag **SnapMark** into **Applications**.
@@ -82,8 +83,9 @@ If you see *"SnapMark is damaged and can't be opened"*, run the `xattr` command 
 
 ### Windows
 
-1. Download `SnapMark Setup x.y.z.exe` (installer) or `SnapMark x.y.z.exe` (portable) from
-   **[Releases](https://github.com/azaanmunir/snapmark/releases/latest)**.
+1. Download `SnapMark_x.y.z_x64-setup.exe` (2.5 MB) from
+   **[Releases](https://github.com/azaanmunir/snapmark/releases/latest)** and run it. It replaces SnapMark 0.1.0 if
+   you have it and keeps your settings.
 2. If SmartScreen shows *"Windows protected your PC"*, click **More info → Run anyway**.
 3. Press **PrintScreen** or **Ctrl+Shift+2**. If PrintScreen opens Windows' Snipping Tool instead, turn off
    *Settings → Accessibility → Keyboard → "Use the Print screen key to open screen capture"*.
